@@ -10,9 +10,9 @@ from watchdog.events import FileSystemEventHandler
 # Configuration
 CSV_FILE = "soil_moisture_data.csv"
 API_ENDPOINT = "http://127.0.0.1:5000/predict"
-EMAIL_SENDER = "alvaro.tapiag94@gmail.com"
-EMAIL_PASSWORD = "repo cyjn ygpr qmgr"
-EMAIL_RECIPIENT = "alvaro.tapiag94@gmail.com"
+EMAIL_SENDER = ""
+EMAIL_PASSWORD = ""
+EMAIL_RECIPIENT = ""
 
 # Email-sending function
 def send_email(prediction, moisture, hour):
