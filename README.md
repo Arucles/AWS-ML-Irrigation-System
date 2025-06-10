@@ -1,5 +1,6 @@
 # AWS-Re/Start-ML-Irrigation-System
 Final project for AWS Re/Start course. Consists of an automated plant irrigation system that uses sensors to collect soil moisture data, then feed a Decision Tree machine learning model to classify whether the plant needs watering or not.
+Presentation video: https://youtu.be/bRBd4tIgXfQ
 
 Usage
 Install virtual environment so the packages needed for this to work don't conflict with existing versions on your OS.
