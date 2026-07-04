@@ -8,7 +8,7 @@ from adafruit_ads1x15.analog_in import AnalogIn
 # Inicialización del bus I2C y el ADC
 i2c = busio.I2C(board.SCL, board.SDA)
 ads = ADS.ADS1115(i2c)
-chan = AnalogIn(ads, ADS.P0)
+chan = AnalogIn(ads, 0)
 
 def obtener_lectura_estable(muestras=15):
     """Toma varias lecturas espaciadas en el tiempo para promediar el ruido analógico"""
