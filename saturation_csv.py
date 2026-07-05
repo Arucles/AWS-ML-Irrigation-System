@@ -5,29 +5,17 @@ import busio
 import json
 from datetime import datetime
 import adafruit_ads1x15.ads1115 as ADS
-from adafruit_ads1x15.analog_in import AnalogIn  # se requiere para lecturas de un punto
+from adafruit_ads1x15.analog_in import AnalogIn
 
-# Crea el bus I2C
-i2c = busio.I2C(board.SCL, board.SDA)
+# ==========================================
+# CONFIGURACIÓN GENERAL (Ajusta aquí)
+# ==========================================
+# 0: Suculentas, 1: Hierba, 2: Arbol, 3: Helecho
+TIPO_PLANTA = 1  
 
-# Crea el conversor de Analogo a digital
-ads = ADS.ADS1115(i2c)
-GAIN = 1  # Se ajusta la ganancia de voltaje del conversor
-ads.gain = GAIN  # y se asigna al objeto del conversor.
+plant_type_map = {0: "Suculentas", 1: "Hierba", 2: "Arbol", 3: "Helecho"}
 
-# Se cargan los datos de configuracion
-with open("cap_config.json") as json_data_file:
-    config_data = json.load(json_data_file)
-
-# Crear el diccionario de tipos de plantas
-plant_type_map = {
-    0: "Suculentas",
-    1: "Hierba",
-    2: "Arbol",
-    3: "Helecho"
-}
-
-# Definir los limites de porcentaje de humedad para regar
+# Umbral: (Mínimo histórico para activar riego, Máximo deseado)
 watering_thresholds = {
     0: (35, 70),  # Suculentas
     1: (40, 80),  # Hierba
@@ -35,97 +23,89 @@ watering_thresholds = {
     3: (45, 75)   # Helecho
 }
 
-# Se le pregunta al usuario el tipo de planta que estará leyendo el sensor
-print("Elige un tipo de planta(numero):")
-for num, name in plant_type_map.items():
-    print(f"{num}: {name}")
+# ==========================================
+# INICIALIZACIÓN DE HARDWARE Y CONFIG
+# ==========================================
+i2c = busio.I2C(board.SCL, board.SDA)
+ads = ADS.ADS1115(i2c)
+ads.gain = 1
 
-while True:
-    try:
-        plant_type_num = int(input("Ingresa el numero correspondiente al tipo: ").strip())
-        if plant_type_num in plant_type_map:
-            plant_type = plant_type_map[plant_type_num]
-            print(f"Tipo de planta seleccionado: {plant_type}")
-            break
-        else:
-            print("Seleccion invalida. Intentalo de nuevo")
-    except ValueError:
-        print("Ingreso no valido, selecciona otro numero.")
+# Cargar calibración
+with open("cap_config.json") as json_data_file:
+    config_data = json.load(json_data_file)
 
-# Config del archivo csv
+ZERO_SAT = config_data["zero_saturation"]
+FULL_SAT = config_data["full_saturation"]
+
+# Instanciar canal analógico (Pin A0 del ADS1115)
+chan = AnalogIn(ads, 0)
+
+# Config del archivo CSV
 csv_filename = "soil_moisture_data.csv"
 header = ["Date", "Time", "Plant_Type", "Moisture_Level", "Moisture_Percentage", "Water_Needed"]
 
-# Crea el archivo csv
 try:
     with open(csv_filename, mode="x", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(header)
-        print(f"Se crea el archivo '{csv_filename}' con enbezado: {header}")
+        print(f"Se crea el archivo '{csv_filename}'")
 except FileExistsError:
-    print(f"Archivo '{csv_filename}' ya existe. Agregando datos.")
+    print(f"Archivo '{csv_filename}' detectado. Agregando datos.")
 
-# Funcion para transformar la humedad a porcentaje
+# ==========================================
+# FUNCIONES LÓGICAS
+# ==========================================
+def read_moisture_stable(muestras=15):
+    """Toma varias lecturas para mitigar el ruido analógico"""
+    valores = []
+    for _ in range(muestras):
+        valores.append(chan.value)
+        time.sleep(0.05)
+    return int(sum(valores) / len(valores))
+
 def percent_translation(raw_val):
-    per_val = abs((raw_val - config_data["zero_saturation"]) / (config_data["full_saturation"] - config_data["zero_saturation"])) * 100
-    return round(per_val, 3)
+    """Transforma la lectura analógica a un porcentaje de 0 a 100%"""
+    per_val = ((ZERO_SAT - raw_val) / (ZERO_SAT - FULL_SAT)) * 100
+    return round(max(0.0, min(100.0, per_val)), 2)
 
-# Funcion para obtener el porcentaje de humedad usando el sensor.
-def read_moisture():
-    # Se usa el channel 0 para obtener los datos
-    chan = AnalogIn(ads, ADS.P0)  # Se puede cambiar de canal si lo desea. P1, P2, P3 etc.
-    return chan.value
+def label_watering_time(moisture_percentage):
+    """
+    Etiqueta pura para Machine Learning: 
+    Solo evalúa la necesidad física de la planta.
+    """
+    min_threshold, _ = watering_thresholds[TIPO_PLANTA]
+    if moisture_percentage < min_threshold:
+        return 1  # La planta necesita agua físicamente
+    return 0
 
-# Funcion para determinar si necesita riego o no
-# Si necesita, devolverá 1, sino devolverá 0
-def label_watering_time(row):
-    # Extraer datos de la fila
-    plant_type_num = row["Plant_Type"]
-    time = row["Time"]
-    moisture_percentage = row["Moisture_Percentage"]
-
-    # Definir el rango de tiempo para regar
-    if 8 <= time <= 20:  # Solo entre 8:00 y 20:00
-        min_threshold, max_threshold = watering_thresholds[plant_type_num]
-        if min_threshold <= moisture_percentage <= max_threshold:
-            return 1  # Regar
-    return 0  # No regar
-
-# Guardar los datos en el archivo csv
-def log_to_csv(date, time, plant_type_num, moisture_level, moisture_percentage, water_needed):
+def log_to_csv(date, time_str, moisture_level, moisture_percentage, water_needed):
     with open(csv_filename, mode="a", newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow([date, time, plant_type_num, moisture_level, moisture_percentage, water_needed])
-        print(f"Datos guardados - Fecha: {date}, Hora: {time}, Tipo planta(num): {plant_type_num}, "
-              f"Nivel humedad: {moisture_level}, % Humedad: {moisture_percentage}, Requiere agua: {water_needed}")
+        writer.writerow([date, time_str, plant_type_map[TIPO_PLANTA], moisture_level, moisture_percentage, water_needed])
+        print(f"[{time_str}] H: {moisture_percentage}% | RAW: {moisture_level} | ¿Regar?: {water_needed}")
 
-# Ciclo principal para recolectar los datos
+# ==========================================
+# BUCLE PRINCIPAL
+# ==========================================
 try:
-    print("Comienza recoleccion de datos. CTRL+C para cancelar")
+    print(f"Monitoreo activo para: {plant_type_map[TIPO_PLANTA]}. Intervalo: 10 min.")
     while True:
-        # Obtener fecha, hora y nivel de humedad
         now = datetime.now()
         current_date = now.strftime("%Y-%m-%d")
         current_time = now.strftime("%H:%M:%S")
-        current_hour = now.hour  # Obtener solo la hora
-        moisture_level = read_moisture()
+        
+        # Captura y procesamiento
+        moisture_level = read_moisture_stable()
         moisture_percentage = percent_translation(moisture_level)
-
-        # Crear una fila temporal para calcular si necesita riego
-        temp_row = {
-            "Plant_Type": plant_type_num,
-            "Time": current_hour,
-            "Moisture_Percentage": moisture_percentage
-        }
-
-        # Determina si se necesita regar
-        water_needed = label_watering_time(temp_row)
-
-        # Guardar datos al csv
-        log_to_csv(current_date, current_time, plant_type_num, moisture_level, moisture_percentage, water_needed)
-
-        # Esperar hasta la siguiente lectura en segundos
-        time.sleep(600)  # Ajustar el intervalo a lo que se desee
+        
+        # Evaluar necesidad de riego
+        water_needed = label_watering_time(moisture_percentage)
+        
+        # Persistencia
+        log_to_csv(current_date, current_time, moisture_level, moisture_percentage, water_needed)
+        
+        # Esperar 10 minutos (600 segundos)
+        time.sleep(600)
 
 except KeyboardInterrupt:
-    print("\nRecoleccion detenida.")
+    print("\nMonitoreo detenido por el usuario.")
