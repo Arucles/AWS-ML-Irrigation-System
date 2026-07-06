@@ -104,8 +104,8 @@ try:
         # Persistencia
         log_to_csv(current_date, current_time, moisture_level, moisture_percentage, water_needed)
         
-        # Esperar 10 minutos (600 segundos)
-        time.sleep(600)
+        # Esperar 2hrs (7200 segundos)
+        time.sleep(7200)
 
 except KeyboardInterrupt:
     print("\nMonitoreo detenido por el usuario.")
