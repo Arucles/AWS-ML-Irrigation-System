@@ -1,4 +1,5 @@
 import csv
+import os
 import time
 import board
 import busio
@@ -8,7 +9,8 @@ import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 import requests
 
-WEBHOOK_URL = "https://discord.com/api/webhooks/1523760480617889805/5ep3u7NuXRb7EzmSXEUiZS6TkSohWvEsCYzQcKQg2bJpexC3CgZDjyL0UlKnWJuIts46"
+# Webhook de Discord: se lee de la variable de entorno DISCORD_WEBHOOK_URL (no se commitea)
+WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
 
 # ==========================================
 # CONFIGURACIÓN GENERAL (Ajusta aquí)
@@ -99,7 +101,11 @@ def enviar_alerta_discord(time_str, moisture_percentage, water_needed):
     )
     
     payload = {"content": mensaje}
-    
+
+    if not WEBHOOK_URL:
+        print("DISCORD_WEBHOOK_URL no está definida; no se envía el reporte.")
+        return
+
     try:
         response = requests.post(WEBHOOK_URL, json=payload)
         if response.status_code != 204:
