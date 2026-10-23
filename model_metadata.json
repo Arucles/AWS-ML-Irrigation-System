@@ -1,0 +1,47 @@
+{
+  "trained_at": "2026-10-22T12:20:14",
+  "n_rows": 114,
+  "sklearn_version": "1.6.0",
+  "numpy_version": "2.2.0",
+  "features": {
+    "Thirsty": [
+      "Plant_Type",
+      "Moisture_Percentage"
+    ],
+    "Can_Water": [
+      "Plant_Type",
+      "Moisture_Percentage",
+      "Hour"
+    ]
+  },
+  "max_depth": {
+    "Thirsty": 1,
+    "Can_Water": 2
+  },
+  "decision_rule": "Regar = Thirsty AND Can_Water (composición en runtime)",
+  "labels_source": "etiquetas.py (humedad/tipo + ventana horaria)",
+  "no_water_window": [
+    11.0,
+    16.0
+  ],
+  "plant_thresholds": {
+    "Suculentas": [
+      35.0,
+      70.0
+    ],
+    "Hierba": [
+      40.0,
+      80.0
+    ],
+    "Arbol": [
+      50.0,
+      90.0
+    ],
+    "Helecho": [
+      45.0,
+      75.0
+    ]
+  },
+  "system_accuracy": 1.0,
+  "water_window_ok": true
+}
