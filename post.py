@@ -1,3 +1,4 @@
+import os
 import time
 import pandas as pd
 import requests
@@ -8,11 +9,24 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 # Configuration
-CSV_FILE = "soil_moisture_data.csv"
-API_ENDPOINT = "http://127.0.0.1:5000/predict"
-EMAIL_SENDER = ""
-EMAIL_PASSWORD = ""
-EMAIL_RECIPIENT = ""
+CSV_FILE = os.environ.get("CSV_FILE", "soil_moisture_data.csv")
+# En la Pi es local; en el PC, apunta a la IP de la Raspberry (http://192.168.x.x:5000/predict)
+API_ENDPOINT = os.environ.get("API_ENDPOINT", "http://127.0.0.1:5000/predict")
+EMAIL_SENDER = os.environ.get("EMAIL_SENDER", "")
+EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD", "")
+EMAIL_RECIPIENT = os.environ.get("EMAIL_RECIPIENT", "")
+
+
+def row_hour(row):
+    """Hora decimal (14.75) combinando Date + Time de la fila.
+
+    Bug anterior: pd.to_datetime(new_row["Time"]).hour usaba sólo la hora y
+    asignaba la fecha de HOY, perdiendo los minutos (18:30 -> 18).
+    """
+    stamp = pd.to_datetime(f"{row['Date']} {row['Time']}", errors="coerce")
+    if pd.isna(stamp):
+        raise ValueError(f"Fecha/hora inválida en la fila: {row.get('Date')} {row.get('Time')}")
+    return stamp.hour + stamp.minute / 60.0
 
 # Email-sending function
 def send_email(prediction, moisture, hour):
@@ -62,8 +76,10 @@ class CSVHandler(FileSystemEventHandler):
 
                     # Extract features for the POST request
                     payload = {
-                        "Moisture_Percentage": new_row["Moisture_Percentage"],
-                        "Hour": pd.to_datetime(new_row["Time"]).hour
+                        "Moisture_Percentage": float(new_row["Moisture_Percentage"]),
+                        # Hora DECIMAL con minutos: el corte de las 16:00 se pierde con enteros
+                        "Hour": row_hour(new_row),
+                        "Plant_Type": new_row["Plant_Type"],
                     }
 
                     # Send the POST request

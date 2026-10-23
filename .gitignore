@@ -1,4 +1,9 @@
 venv/
 *.log
 cap_config.json
+.env
 __pycache__/
+*.pyc
+api_out.txt
+api_err.txt
+

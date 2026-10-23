@@ -1,0 +1,16 @@
+[Unit]
+Description=Lector del sensor de humedad (ADS1115)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/aru/AWS-ML-Irrigation-System
+EnvironmentFile=/home/aru/AWS-ML-Irrigation-System/.env
+Environment=PYTHONUNBUFFERED=1
+MemoryMax=96M
+ExecStart=/home/aru/AWS-ML-Irrigation-System/venv/bin/python /home/aru/AWS-ML-Irrigation-System/ejecutar_sensor.py
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target

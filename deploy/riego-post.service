@@ -1,0 +1,16 @@
+[Unit]
+Description=Vigilante del CSV que consulta la API
+After=riego-api.service
+Wants=riego-api.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/aru/AWS-ML-Irrigation-System
+EnvironmentFile=/home/aru/AWS-ML-Irrigation-System/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/aru/AWS-ML-Irrigation-System/venv/bin/python /home/aru/AWS-ML-Irrigation-System/post.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
